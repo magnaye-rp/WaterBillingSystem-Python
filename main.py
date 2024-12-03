@@ -106,7 +106,6 @@ class WaterBillingSystem(ctk.CTk):
         # Fetch and display data
         fetch_and_display_data(self.concessionaire_table, query)
 
-
     def create_arrears_tab(self):
         arrears_tab = self.tab_control.add("Arrears")
         arrears_frame = ctk.CTkFrame(arrears_tab)
@@ -177,6 +176,9 @@ class WaterBillingSystem(ctk.CTk):
         # Fetch and display data
         fetch_and_display_data(self.disconnection_table, query)
 
+        disconnect_button = ctk.CTkButton(disconnection_frame, text="Disconnect Consumer", command=self.disconnect_consumer)
+        disconnect_button.pack(pady=3)
+
     def create_disconnected_tab(self):
         disconnected_tab = self.tab_control.add("Disconnected Consumers")
         disconnected_frame = ctk.CTkFrame(disconnected_tab)
@@ -200,7 +202,7 @@ class WaterBillingSystem(ctk.CTk):
         fetch_and_display_data(self.disconnected_table, query)
 
         reconnect_button = ctk.CTkButton(disconnected_frame, text="Reconnect Consumer", command=self.reconnect_consumer)
-        reconnect_button.pack(pady=10)
+        reconnect_button.pack(pady=3)
 
     def create_bills_ledger_tab(self):
         bills_ledger_tab = self.tab_control.add("Bills and Ledger")
@@ -272,8 +274,7 @@ class WaterBillingSystem(ctk.CTk):
         PaymentDialog(self)
 
     def new_reading(self):
-        print("New Reading clicked")
-        # Implement functionality to enter a new reading, similar to other dialogs
+        MeterReadingDialog(self)
 
     def add_charges(self):
         ChargesDialog(self)

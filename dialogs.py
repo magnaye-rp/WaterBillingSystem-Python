@@ -214,3 +214,41 @@ class NewUserDialog(ctk.CTkToplevel):
         self.generate_ids()  # Regenerate IDs
 
 
+class MeterReadingDialog(ctk.CTkToplevel):
+    def __init__(self, master):
+        super().__init__(master)
+        self.title("Meter Reading")
+        self.geometry("420x230")
+
+        # Create widgets
+        self.reading_meter_id_label = ctk.CTkLabel(self, text="Meter ID:", font=("Segoe UI", 14, "bold"))
+        self.reading_meter_id_label.place(x=110, y=50)
+
+        self.reading_meter_id_field = ctk.CTkEntry(self, font=("Segoe UI", 14), width=110)
+        self.reading_meter_id_field.place(x=200, y=50)
+
+        self.prev_reading_label = ctk.CTkLabel(self, text="Previous Reading:", font=("Segoe UI", 14, "bold"))
+        self.prev_reading_label.place(x=60, y=90)
+
+        self.prev_reading_field = ctk.CTkEntry(self, font=("Segoe UI", 14), width=110)
+        self.prev_reading_field.place(x=200, y=90)
+
+        self.current_reading_label = ctk.CTkLabel(self, text="Current Reading:", font=("Segoe UI", 14, "bold"))
+        self.current_reading_label.place(x=60, y=130)
+
+        self.current_reading_field = ctk.CTkEntry(self, font=("Segoe UI", 14), width=110)
+        self.current_reading_field.place(x=200, y=130)
+
+        self.reading_submit_button = ctk.CTkButton(self, text="Submit", font=("Segoe UI", 14, "bold"),
+                                                   command=self.submit_reading, width=97)
+        self.reading_submit_button.place(x=260, y=190)
+
+    def submit_reading(self):
+        meter_id = self.reading_meter_id_field.get()
+        prev_reading = self.prev_reading_field.get()
+        current_reading = self.current_reading_field.get()
+
+        # Add logic to handle the submitted readings (e.g., saving data to a database)
+
+        ctk.CTkMessagebox(title="Submission", message="Meter reading submitted successfully!")
+
