@@ -1,6 +1,7 @@
 from tkinter import ttk
 import mysql.connector
 from dialogs import *
+# from process import *
 
 def fetch_and_display_data(table, query):
     try:
@@ -13,6 +14,8 @@ def fetch_and_display_data(table, query):
         )
         cursor = connection.cursor()
         cursor.execute(query)
+        for item in table.get_children():
+            table.delete(item)
 
         # Fetch all rows
         rows = cursor.fetchall()
@@ -220,11 +223,11 @@ class WaterBillingSystem(ctk.CTk):
 
         self.ledger_table.pack(expand=1, fill="both")
         # initialize query
-        query = """SELECT l.LedgerID, l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
+        lquery = """SELECT l.LedgerID, l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
         l.PaymentDate FROM ledger l JOIN bill b ON l.BillingID = b.BillingID JOIN consumerinfo ci ON b.SerialID = ci.SerialID; """
 
         # Fetch and display data
-        fetch_and_display_data(self.ledger_table, query)
+        fetch_and_display_data(self.ledger_table, lquery)
 
         bills_frame = ctk.CTkFrame(bills_ledger_tab)
         bills_frame.pack(expand=1, fill="both", padx=10, pady=5)
@@ -240,10 +243,10 @@ class WaterBillingSystem(ctk.CTk):
 
         self.bills_table.pack(expand=1, fill="both")
         # initialize query
-        query = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill"""
+        bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill"""
 
         # Fetch and display data
-        fetch_and_display_data(self.bills_table, query)
+        fetch_and_display_data(self.bills_table, bquery)
 
     def create_bottom_buttons(self):
         button_frame = ctk.CTkFrame(self)
@@ -256,19 +259,31 @@ class WaterBillingSystem(ctk.CTk):
             ("Add Charges", self.add_charges),
             ("Generate Bills", self.generate_bills),
             ("New User", self.new_user),
+            ("Add Late Fees", self.add_late_fees),
+            ("Refresh", self.refresh),
         ]
         for text, command in buttons:
-            ctk.CTkButton(button_frame, text=text, command=command).pack(side="left", padx=10)
+            ctk.CTkButton(button_frame, text=text, command=command).pack(side="left", padx=5)
 
     def open_user(self):
         print("Open User clicked")
         # Implement functionality to open an existing user, maybe a dialog
 
     def disconnect_consumer(self):
-        print("Disconnect Consumer clicked")  # Placeholder for actual implementation
+        selected_item = self.disconnection_table.focus()
+        item_values = self.disconnection_table.item(selected_item, "values")
+        serial_id = item_values[0]
+        disconnect(serial_id)
+
 
     def reconnect_consumer(self):
-        print("Reconnect Consumer clicked")
+        selected_item = self.disconnected_table.focus()
+        item_values = self.disconnected_table.item(selected_item, "values")
+        serial_id = item_values[0]
+        if existing_arrears(serial_id):
+            messagebox.showerror("Error", "Please Settle arrears first!!")
+        else:
+            reconnect(serial_id)
 
     def payment(self):
         PaymentDialog(self)
@@ -280,11 +295,73 @@ class WaterBillingSystem(ctk.CTk):
         ChargesDialog(self)
 
     def generate_bills(self):
+        generate_bills()
         print("Generate Bills clicked")
         # Implement functionality to generate bills, perhaps another dialog or process
 
     def new_user(self):
         NewUserDialog(self)  # Opens the New User dialog
+
+    def add_late_fees(self):
+        add_late_fees()
+
+    def refresh(self):
+        try:
+            query = """
+                    SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                    mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber FROM consumerinfo ci 
+                    JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 1
+                    """
+            fetch_and_display_data(self.consumer_table, query)
+        except Exception as e:
+            print(f"Error refreshing consumer data: {e}")
+
+        try:
+            query = """
+                    SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                    ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
+                    AND b.DueDate < CURDATE()
+                    """
+            fetch_and_display_data(self.arrears_table, query)
+        except Exception as e:
+            print(f"Error refreshing arrears data: {e}")
+
+        try:
+            query = """
+                    SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge WHERE isDebt = 0
+                    """
+            fetch_and_display_data(self.charges_table, query)
+        except Exception as e:
+            print(f"Error refreshing charges data: {e}")
+
+        try:
+            query = """SELECT DISTINCT ci.SerialID, ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
+                    ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 1 AND b.SerialID 
+                    IN ( SELECT SerialID FROM bill WHERE DueDate < CURDATE() AND isPaid = 0 GROUP BY SerialID HAVING 
+                    COUNT(SerialID) >= 3 ) ORDER BY ci.SerialID"""
+            fetch_and_display_data(self.disconnection_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnection data: {e}")
+
+        try:
+            query = """SELECT SerialID, MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
+                    `consumerinfo` WHERE isConnected = 0"""
+            fetch_and_display_data(self.disconnected_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnected data: {e}")
+
+        try:
+            bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill"""
+            fetch_and_display_data(self.bills_table, bquery)
+        except Exception as e:
+            print(f"Error refreshing bills data: {e}")
+
+        try:
+            lquery = """SELECT l.LedgerID, l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
+                    l.PaymentDate FROM ledger l JOIN bill b ON l.BillingID = b.BillingID JOIN consumerinfo ci ON b.SerialID = ci.SerialID; """
+            fetch_and_display_data(self.ledger_table, lquery)
+        except Exception as e:
+            print(f"Error refreshing ledger data: {e}")
 
 
 # Run the application

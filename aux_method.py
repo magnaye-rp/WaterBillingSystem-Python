@@ -1,54 +1,49 @@
+import mysql.connector
 import sqlite3
 from datetime import datetime, timedelta, date
 from tkinter import messagebox
 
-
-#GET SERIAL ID
+connection = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
 def get_serial_id(billing_id):
-    """
-    Fetches the SerialID from the database for a given BillingID.
-
-    :param billing_id: The BillingID to search for
-    :return: The SerialID if found, otherwise -1
-    """
     serial_id = -1
 
     try:
-        # Connect to the database
-        with sqlite3.connect("your_database.db") as con:  # Replace with your database connection
-            query = "SELECT SerialID FROM bill WHERE BillingID = ?"
-            cur = con.cursor()
-            cur.execute(query, (billing_id,))  # Use parameterized query to prevent SQL injection
-            row = cur.fetchone()
+        con = connection
+        query = "SELECT SerialID FROM bill WHERE BillingID = ?"
+        cur = con.cursor()
+        cur.execute(query, (billing_id,))
+        row = cur.fetchone()
 
-            if row:
-                serial_id = row[0]
-            else:
-                print(f"No matching record found for BillingID: {billing_id}")
+        if row:
+            serial_id = row[0]
+        else:
+            print(f"No matching record found for BillingID: {billing_id}")
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
-        # Handle exception (e.g., logging or raising a custom exception)
 
     return serial_id
 
-
-
 #GET BILL AMOUNT
 def get_bill_amount(billing_id):
-    bill_amount = -1.0
+    bill_amount = 0
 
     try:
-        with sqlite3.connect("your_database.db") as con:
-            query = "SELECT BillingAmount FROM bill WHERE BillingID = ?"
-            cur = con.cursor()
-            cur.execute(query, (billing_id,))
-            row = cur.fetchone()
+        con = connection
+        query = "SELECT BillingAmount FROM bill WHERE BillingID = ?"
+        cur = con.cursor()
+        cur.execute(query, (billing_id,))
+        row = cur.fetchone()
 
-            if row:
-                bill_amount = row[0]
-            else:
-                print(f"No matching record found for BillingID: {billing_id}")
+        if row:
+            bill_amount = row[0]
+        else:
+            print(f"No matching record found for BillingID: {billing_id}")
 
     except sqlite3.Error as e:
         print(f"Database error: {e}")
@@ -60,39 +55,39 @@ def generate_serial_id():
     serial_id = 0
 
     try:
-        with sqlite3.connect("your_database.db") as con:
-            max_serial_id_query = "SELECT MAX(SerialID) AS maxSerialID FROM consumerinfo"
-            cur = con.cursor()
-            cur.execute(max_serial_id_query)
-            row = cur.fetchone()
+        con = connection
+        max_serial_id_query = "SELECT MAX(SerialID) AS maxSerialID FROM consumerinfo"
+        cur = con.cursor()
+        cur.execute(max_serial_id_query)
+        row = cur.fetchone()
 
-            if row and row[0] is not None:
-                serial_id = row[0] + 1
-            else:
-                serial_id = 1  # If the table is empty, start with SerialID = 1
+        if row and row[0] is not None:
+            serial_id = row[0] + 1
+        else:
+            serial_id = 1  # If the table is empty, start with SerialID = 1
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
 
     return serial_id
 
 
 def generate_meter_id():
-    meter_id = 0  # Default value for new meters
+    meter_id = 0
 
     try:
-        with sqlite3.connect("your_database.db") as con:
-            max_meter_id_query = "SELECT MAX(MeterID) AS maxMeterID FROM watermeter"
-            cur = con.cursor()
-            cur.execute(max_meter_id_query)
-            row = cur.fetchone()
+        con = connection
+        max_meter_id_query = "SELECT MAX(MeterID) AS maxMeterID FROM watermeter"
+        cur = con.cursor()
+        cur.execute(max_meter_id_query)
+        row = cur.fetchone()
 
-            if row and row[0] is not None:
-                meter_id = row[0] + 1  # Predict next MeterID
-            else:
-                meter_id = 1  # If the table is empty, start with MeterID = 1
+        if row and row[0] is not None:
+            meter_id = row[0] + 1  # Predict next MeterID
+        else:
+            meter_id = 1  # If the table is empty, start with MeterID = 1
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
 
     return meter_id
@@ -102,16 +97,16 @@ def previous_reading(meter_id):
     reading = 0
 
     try:
-        with sqlite3.connect("your_database.db") as con:
-            query = "SELECT PresentReading FROM watermeter WHERE MeterID = ?"
-            cur = con.cursor()
-            cur.execute(query, (meter_id,))
-            row = cur.fetchone()
+        con = connection
+        query = "SELECT PresentReading FROM watermeter WHERE MeterID = ?"
+        cur = con.cursor()
+        cur.execute(query, (meter_id,))
+        row = cur.fetchone()
 
-            if row:
-                reading = row[0]
+        if row:
+            reading = row[0]
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
 
     return reading
@@ -119,24 +114,34 @@ def previous_reading(meter_id):
 
 def check_if_paid(meter_id):
     try:
-        with sqlite3.connect("your_database.db") as con:
-            query = "SELECT isPaid FROM watermeter WHERE MeterID = ?"
-            cur = con.cursor()
-            cur.execute(query, (meter_id,))
-            row = cur.fetchone()
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+            )
+        query = "SELECT isPaid FROM watermeter WHERE MeterID = ?"
+        cur = con.cursor()
+        cur.execute(query, (meter_id,))
+        row = cur.fetchone()
 
-            if row:
-                return row[0]
-            else:
-                return -1
-    except sqlite3.Error as e:
+        if row:
+            return row[0]
+        else:
+            return -1
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
         return -1
 
 def process_payment(billing_id):
         con = None
         try:
-            con = sqlite3.connect("your_database.db")
+            con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+            )
             con.isolation_level = None  # Disable autocommit
 
             # Validate BillingID and check if already paid
@@ -174,7 +179,7 @@ def process_payment(billing_id):
             con.commit()
             print(f"Payment processed successfully for BillingID: {billing_id}")
 
-        except sqlite3.Error as e:
+        except mysql.connector.Error as e:
             if con:
                 con.rollback()
             print(f"Database error: {e}")
@@ -202,38 +207,32 @@ def concessionaire(name):
     return 0
 
 
-import sqlite3
-from datetime import datetime, timedelta
-from tkinter import messagebox
-
 # Function to generate bills
 def generate_bills():
     try:
-        # Connect to the database
-        con = DatabaseConnector.get_connection()
 
-        # Query to fetch the last bill generation date
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
         check_generation_query = "SELECT generation_date FROM bill_generation_log ORDER BY generation_date DESC LIMIT 1"
         cursor = con.cursor()
         cursor.execute(check_generation_query)
 
-        # Get the current date
         current_date = datetime.now().date()
 
         row = cursor.fetchone()
 
         if row:
-            # If a previous generation date exists, compare it with the current date
-            last_generation_date = row[0]  # Assuming the date is in the first column
+            last_generation_date = row[0]
 
-            # Add one month to the last generation date
             next_generation_date = last_generation_date + timedelta(days=30)
 
-            # Check if the current date is after the next generation date
             if next_generation_date < current_date:
-                generate_bills_logic(con)  # Function to generate bills
+                generate_bills_logic(con)
 
-                # Log the bill generation
                 log_generation_query = "INSERT INTO bill_generation_log (generation_date) VALUES (CURRENT_DATE)"
                 cursor.execute(log_generation_query)
                 con.commit()
@@ -243,10 +242,8 @@ def generate_bills():
             else:
                 messagebox.showinfo("Info", "Bills have already been generated for this period.")
         else:
-            # If no generation date exists, generate bills for the first time
             generate_bills_logic(con)
 
-            # Log the bill generation
             log_generation_query = "INSERT INTO bill_generation_log (generation_date) VALUES (CURRENT_DATE)"
             cursor.execute(log_generation_query)
             con.commit()
@@ -260,7 +257,6 @@ def generate_bills():
 
 def generate_bills_logic(con):
     try:
-        # Query to fetch necessary billing data
         query = """
         SELECT ci.SerialID, d.DebtID, c.ChargeID, 
                AmountDue AS TotalAmount, 
@@ -304,17 +300,22 @@ def generate_bills_logic(con):
 # Function to disconnect
 def disconnect(serialID):
     try:
-        con = DatabaseConnector.get_connection()
-        con.begin()
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
 
         # SQL query to disconnect user
-        disconnect_query = "UPDATE consumerinfo SET isConnected = 0 WHERE SerialID = ?"
+        disconnect_query = "UPDATE consumerinfo SET isConnected = 0 WHERE SerialID = %s"
         cursor = con.cursor()
         cursor.execute(disconnect_query, (serialID,))
         con.commit()
 
         print(f"Disconnect successful for SerialID: {serialID}")
-    except sqlite3.Error as e:
+        messagebox.showinfo("Success",f"Disconnect successful for SerialID: {serialID}")
+    except mysql.connector.Error as e:
         if con:
             con.rollback()
         print(f"Error: {e}")
@@ -325,16 +326,19 @@ def disconnect(serialID):
 # Function to reconnect
 def reconnect(serialID):
     try:
-        con = DatabaseConnector.get_connection()
-        con.begin()
-
-        # SQL query to reconnect user
-        reconnect_query = "UPDATE consumerinfo SET isConnected = 1 WHERE SerialID = ?"
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        reconnect_query = "UPDATE consumerinfo SET isConnected = 1 WHERE SerialID = %s"
         cursor = con.cursor()
         cursor.execute(reconnect_query, (serialID,))
         con.commit()
 
         print(f"Reconnect successful for SerialID: {serialID}")
+        messagebox.showinfo("Success", f"Reconnect successful for SerialID: {serialID}")
     except sqlite3.Error as e:
         if con:
             con.rollback()
@@ -344,7 +348,6 @@ def reconnect(serialID):
             con.close()
 
 
-# Function to setup RowSorter (using a GUI framework like Tkinter)
 def setup_row_sorter(jtable1, jtable5):
     sorter = jtable1.get_table_row_sorter()
     jtable1.set_row_sorter(sorter)
@@ -353,39 +356,34 @@ def setup_row_sorter(jtable1, jtable5):
     jtable5.set_row_sorter(sorted_table)
 
 
-# Function to check if existing arrears exist
 def existing_arrears(serialID):
     exists = False
-    con = None
-    stmt = None
-    rs = None
 
     try:
-        con = sqlite3.connect('your_database.db')  # or replace with your database connection
-        cursor = con.cursor()
-        query = """
-            SELECT COUNT(*) 
-            FROM bill b 
-            JOIN consumerinfo ci ON b.SerialID = ci.SerialID 
-            WHERE b.isPaid = 0 AND b.DueDate < CURRENT_DATE AND b.SerialID = ?
-        """
-        cursor.execute(query, (serialID,))
-        rs = cursor.fetchone()
+        # Use `with` statement to manage the cursor
+        with connection.cursor() as cursor:
+            query = """
+                SELECT COUNT(*) 
+                FROM bill b 
+                JOIN consumerinfo ci ON b.SerialID = ci.SerialID 
+                WHERE b.isPaid = 0 AND b.DueDate < CURRENT_DATE AND b.SerialID = %s
+            """
+            cursor.execute(query, (serialID,))
+            rs = cursor.fetchone()
 
-        if rs:
-            exists = rs[0] > 0  # If count > 0, arrears exist
+            if rs:
+                exists = rs[0] > 0  # If count > 0, arrears exist
+
     except sqlite3.Error as e:
         print(f"Error checking existing arrears: {e}")
     finally:
-        if rs:
-            rs.close()
-        if con:
-            con.close()
+        # Close the connection if this function owns it
+        if connection:
+            connection.close()
 
     return exists
 
 
-# Function to add late fees
 def add_late_fees():
     con = None
     select_stmt = None
@@ -394,16 +392,15 @@ def add_late_fees():
     update_bill_stmt = None
     rs = None
 
-    # Check if it's the right time of the month
     today = date.today()
-    day_of_month = today.day  # Ensure this runs only on a specific day (e.g., 27th of the month)
+    day_of_month = today.day
     if day_of_month != 27:
         print("Late fees can only be added on the 27th of the month.")
         return
 
     try:
-        con = sqlite3.connect('your_database.db')  # or replace with your database connection
-        con.begin()  # Start a transaction
+        con = connection
+        con.begin()
 
         # Select overdue bills
         select_query = """
@@ -465,3 +462,4 @@ def add_late_fees():
             update_bill_stmt.close()
         if con:
             con.close()
+

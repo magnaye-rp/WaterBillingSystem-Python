@@ -1,6 +1,7 @@
 from tkinter import Toplevel
 import customtkinter as ctk
 from tkinter import messagebox
+from aux_method import *
 
 # Dialog for Charges
 class ChargesDialog(Toplevel):
@@ -167,8 +168,8 @@ class NewUserDialog(ctk.CTkToplevel):
         self.serial_id_field.configure(state="normal")  # Enable to modify
         self.meter_id_field.configure(state="normal")  # Enable to modify
 
-        serial_id = "S" + str(1001)  # Example serial ID, generate dynamically
-        meter_id = "M" + str(5001)  # Example meter ID, generate dynamically
+        serial_id = generate_serial_id()  # Example serial ID, generate dynamically
+        meter_id = generate_meter_id()  # Example meter ID, generate dynamically
 
         self.serial_id_field.delete(0, ctk.END)
         self.serial_id_field.insert(0, serial_id)
