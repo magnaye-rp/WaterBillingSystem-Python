@@ -1,6 +1,7 @@
 from tkinter import ttk
 import mysql.connector
 from dialogs import *
+from Userui import *
 # from process import *
 
 def fetch_and_display_data(table, query):
@@ -243,7 +244,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.bills_table.pack(expand=1, fill="both")
         # initialize query
-        bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill"""
+        bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill where isPaid = 0"""
 
         # Fetch and display data
         fetch_and_display_data(self.bills_table, bquery)
@@ -266,15 +267,17 @@ class WaterBillingSystem(ctk.CTk):
             ctk.CTkButton(button_frame, text=text, command=command).pack(side="left", padx=5)
 
     def open_user(self):
+        selected_item = self.consumer_table.focus()
+        item_values = self.consumer_table.item(selected_item, "values")
+        serial_id = item_values[0]
+        UserUI(serial_id)
         print("Open User clicked")
-        # Implement functionality to open an existing user, maybe a dialog
 
     def disconnect_consumer(self):
         selected_item = self.disconnection_table.focus()
         item_values = self.disconnection_table.item(selected_item, "values")
         serial_id = item_values[0]
         disconnect(serial_id)
-
 
     def reconnect_consumer(self):
         selected_item = self.disconnected_table.focus()
@@ -297,7 +300,6 @@ class WaterBillingSystem(ctk.CTk):
     def generate_bills(self):
         generate_bills()
         print("Generate Bills clicked")
-        # Implement functionality to generate bills, perhaps another dialog or process
 
     def new_user(self):
         NewUserDialog(self)  # Opens the New User dialog
@@ -351,7 +353,7 @@ class WaterBillingSystem(ctk.CTk):
             print(f"Error refreshing disconnected data: {e}")
 
         try:
-            bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill"""
+            bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill where isPaid = 0"""
             fetch_and_display_data(self.bills_table, bquery)
         except Exception as e:
             print(f"Error refreshing bills data: {e}")

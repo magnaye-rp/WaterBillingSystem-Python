@@ -1,20 +1,21 @@
+from decimal import Decimal
+
 import mysql.connector
-import sqlite3
 from datetime import datetime, timedelta, date
 from tkinter import messagebox
 
-connection = mysql.connector.connect(
+
+def get_serial_id(billing_id):
+    serial_id = -1
+
+    try:
+        con = mysql.connector.connect(
             host="localhost",
             user="WBSAdmin",
             password="WBS_@dmn.root",
             database="wbs"
         )
-def get_serial_id(billing_id):
-    serial_id = -1
-
-    try:
-        con = connection
-        query = "SELECT SerialID FROM bill WHERE BillingID = ?"
+        query = "SELECT SerialID FROM bill WHERE BillingID = %s"
         cur = con.cursor()
         cur.execute(query, (billing_id,))
         row = cur.fetchone()
@@ -34,8 +35,13 @@ def get_bill_amount(billing_id):
     bill_amount = 0
 
     try:
-        con = connection
-        query = "SELECT BillingAmount FROM bill WHERE BillingID = ?"
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = "SELECT BillingAmount FROM bill WHERE BillingID = %s"
         cur = con.cursor()
         cur.execute(query, (billing_id,))
         row = cur.fetchone()
@@ -45,7 +51,7 @@ def get_bill_amount(billing_id):
         else:
             print(f"No matching record found for BillingID: {billing_id}")
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Database error: {e}")
 
     return bill_amount
@@ -55,7 +61,12 @@ def generate_serial_id():
     serial_id = 0
 
     try:
-        con = connection
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
         max_serial_id_query = "SELECT MAX(SerialID) AS maxSerialID FROM consumerinfo"
         cur = con.cursor()
         cur.execute(max_serial_id_query)
@@ -76,7 +87,12 @@ def generate_meter_id():
     meter_id = 0
 
     try:
-        con = connection
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
         max_meter_id_query = "SELECT MAX(MeterID) AS maxMeterID FROM watermeter"
         cur = con.cursor()
         cur.execute(max_meter_id_query)
@@ -97,8 +113,13 @@ def previous_reading(meter_id):
     reading = 0
 
     try:
-        con = connection
-        query = "SELECT PresentReading FROM watermeter WHERE MeterID = ?"
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = "SELECT PresentReading FROM watermeter WHERE MeterID = %s"
         cur = con.cursor()
         cur.execute(query, (meter_id,))
         row = cur.fetchone()
@@ -111,30 +132,7 @@ def previous_reading(meter_id):
 
     return reading
 
-
-def check_if_paid(meter_id):
-    try:
-        con = mysql.connector.connect(
-            host="localhost",
-            user="WBSAdmin",
-            password="WBS_@dmn.root",
-            database="wbs"
-            )
-        query = "SELECT isPaid FROM watermeter WHERE MeterID = ?"
-        cur = con.cursor()
-        cur.execute(query, (meter_id,))
-        row = cur.fetchone()
-
-        if row:
-            return row[0]
-        else:
-            return -1
-    except mysql.connector.Error as e:
-        print(f"Database error: {e}")
-        return -1
-
 def process_payment(billing_id):
-        con = None
         try:
             con = mysql.connector.connect(
             host="localhost",
@@ -144,8 +142,7 @@ def process_payment(billing_id):
             )
             con.isolation_level = None  # Disable autocommit
 
-            # Validate BillingID and check if already paid
-            check_query = "SELECT isPaid FROM bill WHERE BillingID = ?"
+            check_query = "SELECT isPaid FROM bill WHERE BillingID = %s"
             cur = con.cursor()
             cur.execute(check_query, (billing_id,))
             row = cur.fetchone()
@@ -155,28 +152,30 @@ def process_payment(billing_id):
                 raise Exception(f"Invalid BillingID: {billing_id}")
 
             if row[0] == 1:  # If isPaid is True (1)
-                print("Already Paid")
+                messagebox.showinfo("Notice",f"Bill with BillingID {billing_id} is already paid.")
                 raise Exception(f"Bill with BillingID {billing_id} is already paid.")
+
 
             # Insert into ledger
             insert_ledger_query = """
                 INSERT INTO ledger (BillingID, SerialID, AmountPaid, PaymentDate)
                 SELECT BillingID, SerialID, BillingAmount, CURRENT_DATE
-                FROM bill WHERE BillingID = ?
+                FROM bill WHERE BillingID = %s
             """
             cur.execute(insert_ledger_query, (billing_id,))
 
             # Update isPaid in bill
-            update_bill_query = "UPDATE bill SET isPaid = 1 WHERE BillingID = ?"
+            update_bill_query = "UPDATE bill SET isPaid = 1 WHERE BillingID = %s"
             cur.execute(update_bill_query, (billing_id,))
 
             # Update charge isDebt status
             update_charge_query = """
-                UPDATE charge SET isDebt = 1 WHERE ChargeID = (SELECT ChargeID FROM bill WHERE BillingID = ?)
+                UPDATE charge SET isDebt = 1 WHERE ChargeID = (SELECT ChargeID FROM bill WHERE BillingID = %s)
             """
             cur.execute(update_charge_query, (billing_id,))
 
             con.commit()
+            messagebox.showinfo("Success", f"Payment processed successfully for BillingID: {billing_id}")
             print(f"Payment processed successfully for BillingID: {billing_id}")
 
         except mysql.connector.Error as e:
@@ -206,54 +205,44 @@ def concessionaire(name):
         return 4
     return 0
 
-
-# Function to generate bills
 def generate_bills():
     try:
-
+        # Establish the database connection
         con = mysql.connector.connect(
             host="localhost",
             user="WBSAdmin",
             password="WBS_@dmn.root",
             database="wbs"
         )
-        check_generation_query = "SELECT generation_date FROM bill_generation_log ORDER BY generation_date DESC LIMIT 1"
-        cursor = con.cursor()
-        cursor.execute(check_generation_query)
-
         current_date = datetime.now().date()
 
+        # Check the last generation date
+        check_generation_query = "SELECT generation_date FROM bill_generation_log ORDER BY generation_date DESC LIMIT 1"
+        cursor = con.cursor()  # Standard cursor
+        cursor.execute(check_generation_query)
         row = cursor.fetchone()
 
         if row:
-            last_generation_date = row[0]
-
+            last_generation_date = row[0]  # Access using index
             next_generation_date = last_generation_date + timedelta(days=30)
-
-            if next_generation_date < current_date:
-                generate_bills_logic(con)
-
-                log_generation_query = "INSERT INTO bill_generation_log (generation_date) VALUES (CURRENT_DATE)"
-                cursor.execute(log_generation_query)
-                con.commit()
-
-                messagebox.showinfo("Success", "Billing data successfully inserted")
-                print("Billing data successfully inserted.")
+            if next_generation_date <= current_date:
+                generate_bills_logic(con)  # Generate bills
+                log_generation_date(con)  # Log the new generation
             else:
                 messagebox.showinfo("Info", "Bills have already been generated for this period.")
         else:
+            # No previous record exists, generate bills
             generate_bills_logic(con)
+            log_generation_date(con)
 
-            log_generation_query = "INSERT INTO bill_generation_log (generation_date) VALUES (CURRENT_DATE)"
-            cursor.execute(log_generation_query)
-            con.commit()
+        cursor.close()
+        con.close()
 
-            messagebox.showinfo("Success", "Billing data successfully inserted")
-            print("Billing data successfully inserted.")
-    except sqlite3.Error as e:
-        print("Error:", e)
+    except mysql.connector.Error as e:
+        print("generate_bills Database Error:", e)
     except Exception as ex:
-        print("Error:", ex)
+        print("generate_bills Exception Error:", ex)
+
 
 def generate_bills_logic(con):
     try:
@@ -265,37 +254,47 @@ def generate_bills_logic(con):
         LEFT JOIN debt d ON ci.SerialID = d.MeterID 
         LEFT JOIN charge c ON ci.SerialID = c.SerialID
         """
-
-        cursor = con.cursor()
+        cursor = con.cursor()  # Standard cursor
         cursor.execute(query)
+        rows = cursor.fetchall()
 
         insert_query = """
-        INSERT INTO bill (SerialID, DebtID, ChargeID, BillingAmount, DueDate, isPaid) 
-        VALUES (?, ?, ?, ?, ?, 0)
+        INSERT INTO bill (SerialID, DebtID, ChargeID, BaseAmount, BillingAmount, DueDate, lateFeeMultiplier, isPaid) 
+        VALUES (%s, %s, 0, %s, %s, %s, 0, 0)
         """
         insert_cursor = con.cursor()
-
-        for row in cursor.fetchall():
+        for row in rows:
             SerialID = row[0]
             DebtID = row[1]
-            ChargeID = row[2]
-
-            # Check if either DebtID or ChargeID is 0
-            if DebtID == 0 and ChargeID == 0:
-                print(f"Skipping bill generation for SerialID: {SerialID} due to DebtID or ChargeID being 0.")
-                continue  # Skip this iteration and move to the next row
-
-            Amount = row[3]
+            BaseAmount = row[3]
+            BillingAmount = BaseAmount
             DueDate = row[4]
 
-            # Insert the data into the bill table
-            insert_cursor.execute(insert_query, (SerialID, DebtID, ChargeID, Amount, DueDate))
+            insert_cursor.execute(insert_query, (SerialID, DebtID, BaseAmount, BillingAmount, DueDate))
 
         con.commit()
+        insert_cursor.close()
+        cursor.close()
+
         messagebox.showinfo("Success", "Billing data successfully inserted")
         print("Billing data successfully inserted.")
-    except sqlite3.Error as e:
-        print("Error:", e)
+    except mysql.connector.Error as e:
+        print("generate_bills_logic Database Error:", e)
+    except Exception as ex:
+        print("generate_bills_logic Exception Error:", ex)
+
+
+def log_generation_date(con):
+    try:
+        log_generation_query = "INSERT INTO bill_generation_log (generation_date) VALUES (CURRENT_DATE)"
+        cursor = con.cursor()
+        cursor.execute(log_generation_query)
+        con.commit()
+        cursor.close()
+    except mysql.connector.Error as e:
+        print("log_generation_date Database Error:", e)
+    except Exception as ex:
+        print("log_generation_date Exception Error:", ex)
 
 # Function to disconnect
 def disconnect(serialID):
@@ -339,7 +338,7 @@ def reconnect(serialID):
 
         print(f"Reconnect successful for SerialID: {serialID}")
         messagebox.showinfo("Success", f"Reconnect successful for SerialID: {serialID}")
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         if con:
             con.rollback()
         print(f"Error: {e}")
@@ -360,47 +359,54 @@ def existing_arrears(serialID):
     exists = False
 
     try:
-        # Use `with` statement to manage the cursor
-        with connection.cursor() as cursor:
-            query = """
-                SELECT COUNT(*) 
-                FROM bill b 
-                JOIN consumerinfo ci ON b.SerialID = ci.SerialID 
-                WHERE b.isPaid = 0 AND b.DueDate < CURRENT_DATE AND b.SerialID = %s
-            """
-            cursor.execute(query, (serialID,))
-            rs = cursor.fetchone()
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = """
+            SELECT COUNT(*) 
+            FROM bill b 
+            JOIN consumerinfo ci ON b.SerialID = ci.SerialID 
+            WHERE b.isPaid = 0 AND b.DueDate < CURRENT_DATE AND b.SerialID = %s
+        """
+        cursor = con.cursor()
+        cursor.execute(query, (serialID,))
+        rs = cursor.fetchone()
 
-            if rs:
-                exists = rs[0] > 0  # If count > 0, arrears exist
+        if rs:
+            exists = rs[0] > 0
 
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         print(f"Error checking existing arrears: {e}")
     finally:
-        # Close the connection if this function owns it
-        if connection:
-            connection.close()
+        if con:
+            con.close()
 
     return exists
 
 
 def add_late_fees():
     con = None
-    select_stmt = None
-    insert_charge_stmt = None
-    update_charge_stmt = None
-    update_bill_stmt = None
+    cursor = None
     rs = None
 
     today = date.today()
     day_of_month = today.day
-    if day_of_month != 27:
+    if day_of_month != 11:
         print("Late fees can only be added on the 27th of the month.")
         return
 
     try:
-        con = connection
-        con.begin()
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+
+        cursor = con.cursor(dictionary=True)
 
         # Select overdue bills
         select_query = """
@@ -409,57 +415,37 @@ def add_late_fees():
             LEFT JOIN charge c ON b.ChargeID = c.ChargeID 
             WHERE b.isPaid = 0 AND b.DueDate < CURRENT_DATE;
         """
-        select_stmt = con.prepare(select_query)
-        rs = select_stmt.execute_query()
+        cursor.execute(select_query)
+        rs = cursor.fetchall()
 
-        # Prepare statements for charge updates
-        insert_charge_query = "INSERT INTO charge (SerialID, ChargeAmount, DateIncurred, Type) VALUES (?, 50, CURRENT_DATE, 'LateFee')"
-        insert_charge_stmt = con.prepare(insert_charge_query)
-
-        update_charge_query = "UPDATE charge SET ChargeAmount = ChargeAmount * 1.2 WHERE ChargeID = ?"
-        update_charge_stmt = con.prepare(update_charge_query)
-
-        update_bill_query = "UPDATE bill SET ChargeID = ?, BillingAmount = BillingAmount + ? WHERE BillingID = ?"
-        update_bill_stmt = con.prepare(update_bill_query)
+        # Prepare statement for updating bill
+        update_bill_query = """
+            UPDATE bill 
+            SET BillingAmount = BillingAmount + %s, LateFeeMultiplier = LateFeeMultiplier + 1 
+            WHERE BillingID = %s
+        """
 
         # Process each overdue bill
         for row in rs:
-            billingID = row[0]
-            serialID = row[1]
-            chargeID = row[2]
-            billingAmount = row[3]
+            billingID = row['BillingID']
+            chargeID = row['ChargeID']
+            billingAmount = row['BillingAmount']
 
-            if chargeID == 0:
-                # No existing charge, insert new charge
-                insert_charge_stmt.execute_query([serialID])
-                chargeID = insert_charge_stmt.lastrowid  # Get the newly inserted chargeID
-
-                # Update bill with new chargeID and amount
-                update_bill_stmt.execute_query([chargeID, 50, billingID])
+            if chargeID is None:
+                # No charge, apply a late fee of 50 directly to the billing amount
+                cursor.execute(update_bill_query, (Decimal(50), billingID))
             else:
-                # Existing charge, increase by 20%
-                update_charge_stmt.execute_query([chargeID])
-
-                # Update bill to reflect the increased charge
-                update_bill_stmt.execute_query([chargeID, billingAmount * 0.2, billingID])
+                # Existing charge, increase the billing amount by 20%
+                cursor.execute(update_bill_query, (Decimal(billingAmount) * Decimal(0.2), billingID))
 
         con.commit()  # Commit the transaction
         print("Late fees successfully added to overdue bills.")
-    except sqlite3.Error as e:
+    except mysql.connector.Error as e:
         if con:
             con.rollback()  # Rollback in case of error
         print(f"Error adding late fees: {e}")
     finally:
-        if rs:
-            rs.close()
-        if select_stmt:
-            select_stmt.close()
-        if insert_charge_stmt:
-            insert_charge_stmt.close()
-        if update_charge_stmt:
-            update_charge_stmt.close()
-        if update_bill_stmt:
-            update_bill_stmt.close()
+        if cursor:
+            cursor.close()
         if con:
             con.close()
-

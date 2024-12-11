@@ -55,10 +55,10 @@ class PaymentDialog(Toplevel):
         self.payment_title = ctk.CTkLabel(self, text="Payment Method", font=("Segoe UI", 18, "italic"))
         self.payment_title.pack(pady=10)
 
-        self.payment_serial_id_label = ctk.CTkLabel(self, text="Serial ID:", font=("Segoe UI Emoji", 14, "bold"))
-        self.payment_serial_id_label.pack(anchor="w", padx=20, pady=5)
-        self.payment_serial_id_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
-        self.payment_serial_id_field.pack(padx=20, pady=5, fill="x")
+        self.payment_bill_id_label = ctk.CTkLabel(self, text="Bill ID:", font=("Segoe UI Emoji", 14, "bold"))
+        self.payment_bill_id_label.pack(anchor="w", padx=20, pady=5)
+        self.payment_bill_id_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
+        self.payment_bill_id_field.pack(padx=20, pady=5, fill="x")
 
         self.payment_amount_label = ctk.CTkLabel(self, text="Amount:", font=("Segoe UI Emoji", 14, "bold"))
         self.payment_amount_label.pack(anchor="w", padx=20, pady=5)
@@ -75,18 +75,30 @@ class PaymentDialog(Toplevel):
 
         self.payment_submit_button = ctk.CTkButton(self, text="Pay", font=("Segoe UI Symbol", 14, "bold"), command=self.submit_payment)
         self.payment_submit_button.pack(pady=20)
+        self.payment_bill_id_field.bind("<KeyRelease>", self.on_bill_id_change)
 
     def submit_payment(self):
-        serial_id = self.payment_serial_id_field.get()
+        bill_id = self.payment_bill_id_field.get()
         amount = self.payment_amount_field.get()
         account = self.payment_account_field.get()
         mop = self.mop_combo_box.get()
 
         # Validation check before submission
-        if not serial_id or not amount or not account or not mop:
+        if not bill_id or not amount or not account or not mop:
             messagebox.showerror("Error", "Please fill in all fields.")
         else:
-            messagebox.showinfo("Payment", f"Payment of {amount} for Serial ID {serial_id} from account {account} via {mop} processed successfully!")
+            process_payment(bill_id)
+
+
+    def on_bill_id_change(self, event):
+        bill_id = self.payment_bill_id_field.get()
+        try:
+            bill = get_bill_amount(bill_id)
+            self.payment_amount_field.delete(0, ctk.END)
+            self.payment_amount_field.insert(0, str(bill))
+        except mysql.connector.Error as e:
+            print(f"Error retrieving bill amount: {e}")
+
 
 
 #Dialog for New User
@@ -243,13 +255,111 @@ class MeterReadingDialog(ctk.CTkToplevel):
         self.reading_submit_button = ctk.CTkButton(self, text="Submit", font=("Segoe UI", 14, "bold"),
                                                    command=self.submit_reading, width=97)
         self.reading_submit_button.place(x=260, y=190)
+        self.reading_meter_id_field.bind("<KeyRelease>", self.on_meter_id_change)
 
     def submit_reading(self):
-        meter_id = self.reading_meter_id_field.get()
-        prev_reading = self.prev_reading_field.get()
-        current_reading = self.current_reading_field.get()
-
-        # Add logic to handle the submitted readings (e.g., saving data to a database)
-
+        self.update_water_meter_and_insert_debt()
         ctk.CTkMessagebox(title="Submission", message="Meter reading submitted successfully!")
 
+    def previous_reading(self,meter_id):
+        try:
+            con = mysql.connector.connect(
+                host="localhost",
+                user="WBSAdmin",
+                password="WBS_@dmn.root",
+                database="wbs"
+            )
+            cursor = con.cursor()
+            query = "SELECT PresentReading FROM watermeter WHERE MeterID = %s"
+            cursor.execute(query, (meter_id,))
+            result = cursor.fetchone()
+            return result[0] if result else 0
+        except mysql.connector.Error as e:
+            print(f"Error retrieving previous reading: {e}")
+            raise
+        finally:
+            if con.is_connected():
+                cursor.close()
+                con.close()
+
+    def update_water_meter_and_insert_debt(self):
+        meter_id = self.reading_meter_id_field.get()
+        present_reading = self.current_reading_field.get()
+
+        try:
+            con = mysql.connector.connect(
+                host="localhost",
+                user="WBSAdmin",
+                password="WBS_@dmn.root",
+                database="wbs"
+            )
+            cursor = con.cursor()
+
+            # Retrieve the previous reading
+            prev_reading = previous_reading(meter_id)
+            current_reading = float(present_reading)
+
+            # Validate the current reading
+            if current_reading < prev_reading:
+                messagebox.showwarning(
+                    "Input Error",
+                    "Warning: Current reading cannot be less than previous reading."
+                )
+                return
+
+            # Update watermeter table
+            update_query = """
+                UPDATE watermeter
+                SET 
+                    PreviousReading = PresentReading,
+                    PreviousReadingDate = ReadingDate,
+                    PresentReading = %s,
+                    ReadingDate = CURDATE()
+                WHERE MeterID = %s
+            """
+            cursor.execute(update_query, (current_reading, meter_id))
+
+            # Insert into debt table
+            insert_query = """
+                INSERT INTO debt (MeterID, FromDate, PreviousReading, ToDate, LatestReading, AmountDue)
+                SELECT 
+                    wm.MeterID,
+                    wm.PreviousReadingDate AS FromDate,
+                    wm.PreviousReading,
+                    wm.ReadingDate AS ToDate,
+                    wm.PresentReading AS LatestReading,
+                    wm.Consumption * c.PricePerCubicMeter AS AmountDue
+                FROM 
+                    watermeter wm
+                JOIN 
+                    concessionaire c ON wm.ConcessionaireID = c.ConcessionaireID
+                WHERE 
+                    wm.MeterID = %s
+            """
+            cursor.execute(insert_query, (meter_id,))
+
+            con.commit()
+            messagebox.showinfo("Success",
+                                f"Debt successfully inserted and water meter updated for MeterID: {meter_id}")
+
+        except mysql.connector.Error as e:
+            print(f"Error: {e}")
+            if con.is_connected():
+                con.rollback()
+        finally:
+            if con.is_connected():
+                cursor.close()
+                con.close()
+            self.current_reading_field.delete(0, ctk.END)
+            self.reading_meter_id_field.delete(0, ctk.END)
+
+
+    def on_meter_id_change(self, event):
+
+        meter_id = self.reading_meter_id_field.get()
+        try:
+            prev_reading = self.previous_reading(meter_id)
+            self.prev_reading_field.delete(0, ctk.END)
+            self.prev_reading_field.insert(0, str(prev_reading))
+        except mysql.connector.Error as e:
+            print(f"Error retrieving previous reading: {e}")
