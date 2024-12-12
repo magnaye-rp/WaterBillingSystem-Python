@@ -1,18 +1,15 @@
-from tkinter import ttk
 import mysql.connector
 from dialogs import *
 from Userui import *
-# from process import *
 
 def fetch_and_display_data(table, query):
+    connection = mysql.connector.connect(
+        host="localhost",
+        user="WBSAdmin",
+        password="WBS_@dmn.root",
+        database="wbs"
+    )
     try:
-        # Connect to the database
-        connection = mysql.connector.connect(
-            host="localhost",
-            user="WBSAdmin",
-            password="WBS_@dmn.root",
-            database="wbs"
-        )
         cursor = connection.cursor()
         cursor.execute(query)
         for item in table.get_children():
@@ -30,7 +27,6 @@ def fetch_and_display_data(table, query):
     finally:
         if connection.is_connected():
             connection.close()
-
 
 # Main WaterBillingSystem
 class WaterBillingSystem(ctk.CTk):
@@ -151,7 +147,7 @@ class WaterBillingSystem(ctk.CTk):
         self.charges_table.pack(expand=1, fill="both")
         # initialize query
         query = """
-                SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge WHERE isDebt = 0
+                SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge
                 """
         # Fetch and display data
         fetch_and_display_data(self.charges_table, query)
@@ -258,8 +254,8 @@ class WaterBillingSystem(ctk.CTk):
             ("Payment", self.payment),
             ("New Reading", self.new_reading),
             ("Add Charges", self.add_charges),
-            ("Generate Bills", self.generate_bills),
             ("New User", self.new_user),
+            ("Generate Bills", self.generate_bills),
             ("Add Late Fees", self.add_late_fees),
             ("Refresh", self.refresh),
         ]
@@ -297,12 +293,12 @@ class WaterBillingSystem(ctk.CTk):
     def add_charges(self):
         ChargesDialog(self)
 
+    def new_user(self):
+        NewUserDialog(self)
+
     def generate_bills(self):
         generate_bills()
         print("Generate Bills clicked")
-
-    def new_user(self):
-        NewUserDialog(self)  # Opens the New User dialog
 
     def add_late_fees(self):
         add_late_fees()
@@ -330,7 +326,7 @@ class WaterBillingSystem(ctk.CTk):
 
         try:
             query = """
-                    SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge WHERE isDebt = 0
+                    SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge
                     """
             fetch_and_display_data(self.charges_table, query)
         except Exception as e:
@@ -368,6 +364,6 @@ class WaterBillingSystem(ctk.CTk):
 
 # Run the application
 if __name__ == "__main__":
-    app = WaterBillingSystem()  # Instantiate the main app
-    app.mainloop()  # Start the Tkinter event loop
+    app = WaterBillingSystem()
+    app.mainloop()
 

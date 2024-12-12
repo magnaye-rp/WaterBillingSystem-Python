@@ -1,6 +1,6 @@
+import random
 from tkinter import Toplevel
 import customtkinter as ctk
-from tkinter import messagebox
 from aux_method import *
 
 # Dialog for Charges
@@ -26,8 +26,10 @@ class ChargesDialog(Toplevel):
 
         self.charges_description_label = ctk.CTkLabel(self, text="Charges Description:", font=("Segoe UI Emoji", 14, "bold"))
         self.charges_description_label.pack(anchor="w", padx=20, pady=5)
-        self.charges_description_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
-        self.charges_description_field.pack(padx=20, pady=5, fill="x")
+        self.charges_description_combo_box = ctk.CTkComboBox(self, values=["Adjustment", "Repairs",
+                                                                      "Damages", "Penalty"],
+                                                        font=("Segoe UI", 14))
+        self.charges_description_combo_box.pack(anchor="w", padx=20, pady=5)
 
         self.charges_submit_button = ctk.CTkButton(self, text="SUBMIT", font=("Segoe UI Symbol", 14, "bold"), command=self.submit_charges)
         self.charges_submit_button.pack(pady=20)
@@ -35,21 +37,76 @@ class ChargesDialog(Toplevel):
     def submit_charges(self):
         serial_id = self.charges_serial_id_field.get()
         amount = self.charges_amount_field.get()
-        description = self.charges_description_field.get()
+        description = self.charges_description_combo_box.get()
 
         # Validation check before submission
         if not serial_id or not amount or not description:
             messagebox.showerror("Error", "Please fill in all fields.")
         else:
-            messagebox.showinfo("Charges", f"Charges of {amount} for Serial ID {serial_id} with description '{description}' submitted successfully!")
+            self.add_charge_and_bill()
+
+    def add_charge_and_bill(self):
+        try:
+            # Connect to the database
+            con = mysql.connector.connect(
+                host="localhost",
+                user="WBSAdmin",
+                password="WBS_@dmn.root",
+                database="wbs"
+            )
+            cursor = con.cursor()
+
+            # Retrieving input values
+            serial_id = self.charges_serial_id_field.get()
+            amount = self.charges_amount_field.get()
+            desc = self.charges_description_combo_box.get()
+            billing_amount = float(amount)
+            due_date = date.today()
+
+            insert_charge_query = (
+                """
+                INSERT INTO charge (SerialID, ChargeAmount, DateIncurred, Type)
+                VALUES (%s, %s, CURDATE(), %s);
+                """
+            )
+
+            cursor.execute(insert_charge_query, (serial_id, amount, desc))
+            con.commit()
+
+            charge_id = cursor.lastrowid
+
+            insert_bill_query = (
+                """
+                INSERT INTO bill (SerialID, DebtID, ChargeID, BaseAmount, BillingAmount, DueDate, isPaid, LateFeeMultiplier)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+                """
+            )
+
+            cursor.execute(insert_bill_query, (serial_id, 0, charge_id, billing_amount, billing_amount, due_date, 0, 0))
+            con.commit()
+
+            self.charges_serial_id_field.delete(0, 'end')
+            self.charges_amount_field.delete(0, 'end')
+            self.charges_description_combo_box.set("")
+            ChargesDialog.destroy(self)
+            messagebox.showinfo("Success", "Charge and Bill successfully added!")
 
 
-# Dialog for Payment
+        except mysql.connector.Error as e:
+            con.rollback()
+            messagebox.showerror("Error", f"An error occurred: {e}")
+
+        finally:
+            if cursor:
+                cursor.close()
+            if con:
+                con.close()
+
 class PaymentDialog(Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.title("Payment")
-        self.geometry("400x400")
+        self.geometry("400x450")
 
         # Create widgets for Payment Dialog
         self.payment_title = ctk.CTkLabel(self, text="Payment Method", font=("Segoe UI", 18, "italic"))
@@ -70,6 +127,8 @@ class PaymentDialog(Toplevel):
         self.payment_account_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
         self.payment_account_field.pack(padx=20, pady=5, fill="x")
 
+        self.mop_label = ctk.CTkLabel(self, text="Mode of Payment:", font=("Segoe UI Emoji", 14, "bold"))
+        self.mop_label.pack(anchor="w", padx=20, pady=5)
         self.mop_combo_box = ctk.CTkComboBox(self, values=["Gcash", "Maya", "Visa/Bancnet"], font=("Segoe UI", 12))
         self.mop_combo_box.pack(padx=20, pady=10, fill="x")
 
@@ -88,6 +147,7 @@ class PaymentDialog(Toplevel):
             messagebox.showerror("Error", "Please fill in all fields.")
         else:
             process_payment(bill_id)
+            PaymentDialog.destroy(self)
 
 
     def on_bill_id_change(self, event):
@@ -99,9 +159,6 @@ class PaymentDialog(Toplevel):
         except mysql.connector.Error as e:
             print(f"Error retrieving bill amount: {e}")
 
-
-
-#Dialog for New User
 class NewUserDialog(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -176,12 +233,10 @@ class NewUserDialog(ctk.CTkToplevel):
         self.generate_ids()
 
     def generate_ids(self):
-        # Automatically generate Serial ID and Meter ID
-        self.serial_id_field.configure(state="normal")  # Enable to modify
-        self.meter_id_field.configure(state="normal")  # Enable to modify
-
-        serial_id = generate_serial_id()  # Example serial ID, generate dynamically
-        meter_id = generate_meter_id()  # Example meter ID, generate dynamically
+        self.serial_id_field.configure(state="normal")
+        self.meter_id_field.configure(state="normal")
+        serial_id = generate_serial_id()
+        meter_id = generate_meter_id()
 
         self.serial_id_field.delete(0, ctk.END)
         self.serial_id_field.insert(0, serial_id)
@@ -189,8 +244,8 @@ class NewUserDialog(ctk.CTkToplevel):
         self.meter_id_field.delete(0, ctk.END)
         self.meter_id_field.insert(0, meter_id)
 
-        self.serial_id_field.configure(state="readonly")  # Disable after setting value
-        self.meter_id_field.configure(state="readonly")  # Disable after setting value
+        self.serial_id_field.configure(state="readonly")
+        self.meter_id_field.configure(state="readonly")
 
     def on_submit(self):
         # This function will handle the submit button click
@@ -201,18 +256,11 @@ class NewUserDialog(ctk.CTkToplevel):
         address = self.address_field.get()
         password = self.pass_field.get()
         concessionaire = self.concessionaire_combo_box.get()
-        serial_id = self.serial_id_field.get()
-        meter_id = self.meter_id_field.get()
 
-        # Validation
         if not fname or not lname or not email or not contact or not address or not password or not concessionaire:
             messagebox.showerror("Error", "All fields must be filled in!")
         else:
-            # If everything is valid, process the data
-            # For now, we just show a success message
-            messagebox.showinfo("Success", "New user successfully added!")
-
-            # Optionally, clear the fields after submission
+            self.submit_action()
             self.clear_fields()
 
     def clear_fields(self):
@@ -224,8 +272,69 @@ class NewUserDialog(ctk.CTkToplevel):
         self.address_field.delete(0, ctk.END)
         self.pass_field.delete(0, ctk.END)
         self.concessionaire_combo_box.set('')
-        self.generate_ids()  # Regenerate IDs
+        self.generate_ids()
+        NewUserDialog.destroy(self)
 
+    def submit_action(self):
+        fname = self.fname_field.get().strip()
+        lname = self.lname_field.get().strip()
+        password = self.pass_field.get().strip()
+        address = self.address_field.get().strip()
+        email = self.email_field.get().strip()
+        contact = self.contact_num_field.get().strip()
+        name = self.concessionaire_combo_box.get().strip()
+        concessionaire_num = concessionaire(name)
+
+        if not all([fname, lname, password, address, email, contact, concessionaire]):
+            messagebox.showerror("Validation Error", "All fields are required and cannot be empty.")
+            return
+
+        try:
+            con = mysql.connector.connect(
+                host="localhost",
+                user="WBSAdmin",
+                password="WBS_@dmn.root",
+                database="wbs"
+            )
+
+            if con.is_connected():
+                cursor = con.cursor()
+
+                meter_id = generate_meter_id()
+                inspector_id = random.randint(1, 6)
+
+                insert_consumer_query = (
+                    """
+                    INSERT INTO consumerinfo 
+                    (Password, FirstName, LastName, Address, ContactNumber, Email, MeterID, InspectorID) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+                    """
+                )
+                cursor.execute(insert_consumer_query,
+                               (password, fname, lname, address, contact, email, meter_id, inspector_id))
+
+                insert_water_meter_query = (
+                    """
+                    INSERT INTO watermeter 
+                    (PresentReading, PreviousReading, ReadingDate, PreviousReadingDate, ConcessionaireID) 
+                    VALUES (0, 0, CURDATE(), CURDATE(), %s)
+                    """
+                )
+                cursor.execute(insert_water_meter_query, (concessionaire_num,))
+                con.commit()
+
+                messagebox.showinfo("Success", "Consumer successfully added!")
+
+
+        except mysql.connector.Error as e:
+            messagebox.showerror("Database Error", f"Error: {e}")
+            if con:
+                con.rollback()
+
+        finally:
+            if con.is_connected():
+                cursor.close()
+                con.close()
 
 class MeterReadingDialog(ctk.CTkToplevel):
     def __init__(self, master):
@@ -233,7 +342,6 @@ class MeterReadingDialog(ctk.CTkToplevel):
         self.title("Meter Reading")
         self.geometry("420x230")
 
-        # Create widgets
         self.reading_meter_id_label = ctk.CTkLabel(self, text="Meter ID:", font=("Segoe UI", 14, "bold"))
         self.reading_meter_id_label.place(x=110, y=50)
 
@@ -259,16 +367,15 @@ class MeterReadingDialog(ctk.CTkToplevel):
 
     def submit_reading(self):
         self.update_water_meter_and_insert_debt()
-        ctk.CTkMessagebox(title="Submission", message="Meter reading submitted successfully!")
 
     def previous_reading(self,meter_id):
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
         try:
-            con = mysql.connector.connect(
-                host="localhost",
-                user="WBSAdmin",
-                password="WBS_@dmn.root",
-                database="wbs"
-            )
             cursor = con.cursor()
             query = "SELECT PresentReading FROM watermeter WHERE MeterID = %s"
             cursor.execute(query, (meter_id,))
@@ -285,7 +392,6 @@ class MeterReadingDialog(ctk.CTkToplevel):
     def update_water_meter_and_insert_debt(self):
         meter_id = self.reading_meter_id_field.get()
         present_reading = self.current_reading_field.get()
-
         try:
             con = mysql.connector.connect(
                 host="localhost",
@@ -295,19 +401,18 @@ class MeterReadingDialog(ctk.CTkToplevel):
             )
             cursor = con.cursor()
 
-            # Retrieve the previous reading
             prev_reading = previous_reading(meter_id)
             current_reading = float(present_reading)
 
             # Validate the current reading
             if current_reading < prev_reading:
+                self.prev_reading_field.delete(0, ctk.END)
                 messagebox.showwarning(
                     "Input Error",
                     "Warning: Current reading cannot be less than previous reading."
                 )
                 return
 
-            # Update watermeter table
             update_query = """
                 UPDATE watermeter
                 SET 
@@ -341,6 +446,7 @@ class MeterReadingDialog(ctk.CTkToplevel):
             con.commit()
             messagebox.showinfo("Success",
                                 f"Debt successfully inserted and water meter updated for MeterID: {meter_id}")
+            MeterReadingDialog.destroy(self)
 
         except mysql.connector.Error as e:
             print(f"Error: {e}")
@@ -352,7 +458,6 @@ class MeterReadingDialog(ctk.CTkToplevel):
                 con.close()
             self.current_reading_field.delete(0, ctk.END)
             self.reading_meter_id_field.delete(0, ctk.END)
-
 
     def on_meter_id_change(self, event):
 
