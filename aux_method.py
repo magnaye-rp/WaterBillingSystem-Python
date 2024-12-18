@@ -1,5 +1,4 @@
 from decimal import Decimal
-
 import mysql.connector
 from datetime import datetime, timedelta, date
 from tkinter import messagebox

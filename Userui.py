@@ -1,7 +1,5 @@
 import mysql.connector
 import customtkinter as ctk
-from tkinter import messagebox
-from tkinter import ttk
 from invoicePopup import *
 
 
