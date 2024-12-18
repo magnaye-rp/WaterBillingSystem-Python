@@ -353,14 +353,6 @@ def reconnect(serialID):
             con.close()
 
 
-def setup_row_sorter(jtable1, jtable5):
-    sorter = jtable1.get_table_row_sorter()
-    jtable1.set_row_sorter(sorter)
-
-    sorted_table = jtable5.get_table_row_sorter()
-    jtable5.set_row_sorter(sorted_table)
-
-
 def existing_arrears(serialID):
     exists = False
 
@@ -400,7 +392,7 @@ def add_late_fees():
 
     today = date.today()
     day_of_month = today.day
-    if day_of_month != 18:
+    if day_of_month != 1:
         print("Late fees can only be added on the 1st of the month.")
         return
 
