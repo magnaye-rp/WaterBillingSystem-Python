@@ -253,6 +253,7 @@ def generate_bills_logic(con):
         FROM consumerinfo ci 
         LEFT JOIN debt d ON ci.SerialID = d.MeterID 
         LEFT JOIN charge c ON ci.SerialID = c.SerialID
+        WHERE d.isBilled = 0
         """
         cursor = con.cursor()  # Standard cursor
         cursor.execute(query)
@@ -262,7 +263,14 @@ def generate_bills_logic(con):
         INSERT INTO bill (SerialID, DebtID, ChargeID, BaseAmount, BillingAmount, DueDate, lateFeeMultiplier, isPaid) 
         VALUES (%s, %s, 0, %s, %s, %s, 0, 0)
         """
+        update_query = """
+        UPDATE debt
+        SET isPaid = 1
+        WHERE DebtID = %s
+        """
+
         insert_cursor = con.cursor()
+        update_cursor = con.cursor()
         for row in rows:
             SerialID = row[0]
             DebtID = row[1]
@@ -270,10 +278,16 @@ def generate_bills_logic(con):
             BillingAmount = BaseAmount
             DueDate = row[4]
 
+            # Insert billing record
             insert_cursor.execute(insert_query, (SerialID, DebtID, BaseAmount, BillingAmount, DueDate))
+
+            # Update debt record
+            if DebtID is not None:
+                update_cursor.execute(update_query, (DebtID,))
 
         con.commit()
         insert_cursor.close()
+        update_cursor.close()
         cursor.close()
 
         messagebox.showinfo("Success", "Billing data successfully inserted")
@@ -282,7 +296,6 @@ def generate_bills_logic(con):
         print("generate_bills_logic Database Error:", e)
     except Exception as ex:
         print("generate_bills_logic Exception Error:", ex)
-
 
 def log_generation_date(con):
     try:
@@ -394,8 +407,8 @@ def add_late_fees():
 
     today = date.today()
     day_of_month = today.day
-    if day_of_month != 11:
-        print("Late fees can only be added on the 27th of the month.")
+    if day_of_month != 1:
+        print("Late fees can only be added on the 1st of the month.")
         return
 
     try:

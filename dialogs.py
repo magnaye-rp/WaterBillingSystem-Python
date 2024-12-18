@@ -456,8 +456,6 @@ class MeterReadingDialog(ctk.CTkToplevel):
             if con.is_connected():
                 cursor.close()
                 con.close()
-            self.current_reading_field.delete(0, ctk.END)
-            self.reading_meter_id_field.delete(0, ctk.END)
 
     def on_meter_id_change(self, event):
 
