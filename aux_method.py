@@ -167,12 +167,6 @@ def process_payment(billing_id):
             update_bill_query = "UPDATE bill SET isPaid = 1 WHERE BillingID = %s"
             cur.execute(update_bill_query, (billing_id,))
 
-            # Update charge isDebt status
-            update_charge_query = """
-                UPDATE charge SET isDebt = 1 WHERE ChargeID = (SELECT ChargeID FROM bill WHERE BillingID = %s)
-            """
-            cur.execute(update_charge_query, (billing_id,))
-
             con.commit()
             messagebox.showinfo("Success", f"Payment processed successfully for BillingID: {billing_id}")
             print(f"Payment processed successfully for BillingID: {billing_id}")

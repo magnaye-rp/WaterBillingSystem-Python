@@ -265,6 +265,7 @@ class WaterBillingSystem(ctk.CTk):
     def open_user(self):
         selected_item = self.consumer_table.focus()
         item_values = self.consumer_table.item(selected_item, "values")
+        #(0, pangalan, adrress....)
         serial_id = item_values[0]
         UserUI(serial_id)
         print("Open User clicked")
