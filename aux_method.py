@@ -400,7 +400,7 @@ def add_late_fees():
 
     today = date.today()
     day_of_month = today.day
-    if day_of_month != 1:
+    if day_of_month != 18:
         print("Late fees can only be added on the 1st of the month.")
         return
 
@@ -439,7 +439,7 @@ def add_late_fees():
 
             if chargeID is None:
                 # No charge, apply a late fee of 50 directly to the billing amount
-                cursor.execute(update_bill_query, (Decimal(50), billingID))
+                cursor.execute(update_bill_query, (Decimal(billingAmount) * Decimal(0.2), billingID))
             else:
                 # Existing charge, increase the billing amount by 20%
                 cursor.execute(update_bill_query, (Decimal(billingAmount) * Decimal(0.2), billingID))

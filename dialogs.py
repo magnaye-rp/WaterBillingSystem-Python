@@ -66,7 +66,7 @@ class ChargesDialog(Toplevel):
             insert_charge_query = (
                 """
                 INSERT INTO charge (SerialID, ChargeAmount, DateIncurred, Type)
-                VALUES (%s, %s, CURDATE(), %s);
+                VALUES (%s, %s, CURDATE() + INTERVAL 30 DAY, %s);
                 """
             )
 
