@@ -54,19 +54,32 @@ class WaterBillingSystem(ctk.CTk):
         self.create_disconnected_tab()
         self.create_bills_ledger_tab()
 
-        # Bottom Buttons
         self.create_bottom_buttons()
 
     def create_consumer_tab(self):
-        # Create Consumer Tab
         consumer_tab = self.tab_control.add("Consumers")
         consumer_frame = ctk.CTkFrame(consumer_tab)
         consumer_frame.pack(expand=1, fill="both", padx=10, pady=10)
 
-        # Create Consumer Table
+        search_frame = ctk.CTkFrame(consumer_frame)
+        search_frame.pack(fill="x", padx=10, pady=5)
+
+        search_label = ctk.CTkLabel(search_frame, text="Search:")
+        search_label.pack(side="left", padx=5)
+
+        self.consumer_search_entry = ctk.CTkEntry(search_frame, placeholder_text="Enter name or ID...")
+        self.consumer_search_entry.pack(side="left", fill="x", expand=True, padx=5)
+
+        search_button = ctk.CTkButton(search_frame, text="Search", command=self.search_consumers)
+        search_button.pack(side="left", padx=5)
+
+        reset_button = ctk.CTkButton(search_frame, text="Reset", command=self.reset_consumer_search)
+        reset_button.pack(side="left", padx=5)
+
         self.consumer_table = ttk.Treeview(
             consumer_frame,
-            columns=("SerialID", "MeterID", "FirstName", "LastName", "Address", "ContactNumber", "Email", "Inspector", "Contact"),
+            columns=("SerialID", "MeterID", "FirstName", "LastName", "Address", "ContactNumber", "Email", "Inspector",
+                     "Contact"),
             show="headings"
         )
         self.consumer_table.pack(expand=1, fill="both")
@@ -75,13 +88,39 @@ class WaterBillingSystem(ctk.CTk):
         for col in self.consumer_table["columns"]:
             self.consumer_table.heading(col, text=col)
             self.consumer_table.column(col, width=150, anchor="center")
-        #initialize query
+
         query = """
                 SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
-                mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber FROM consumerinfo ci 
-                JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 1
+                mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
+                FROM consumerinfo ci 
+                JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
+                WHERE ci.isConnected = 1
                 """
-        # Fetch and display data
+        fetch_and_display_data(self.consumer_table, query)
+
+    def search_consumers(self):
+        search_term = self.consumer_search_entry.get().strip()
+
+        query = f"""
+                SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
+                FROM consumerinfo ci 
+                JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
+                WHERE ci.isConnected = 1 AND 
+                (ci.SerialID LIKE '%{search_term}%' OR ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
+                """
+        fetch_and_display_data(self.consumer_table, query)
+
+    def reset_consumer_search(self):
+        self.consumer_search_entry.delete(0, "end")
+
+        query = """
+                SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
+                FROM consumerinfo ci 
+                JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
+                WHERE ci.isConnected = 1
+                """
         fetch_and_display_data(self.consumer_table, query)
 
     def create_concessionaire_tab(self):
@@ -111,6 +150,21 @@ class WaterBillingSystem(ctk.CTk):
         arrears_frame = ctk.CTkFrame(arrears_tab)
         arrears_frame.pack(expand=1, fill="both", padx=10, pady=10)
 
+        search_frame = ctk.CTkFrame(arrears_frame)
+        search_frame.pack(fill="x", padx=10, pady=5)
+
+        search_label = ctk.CTkLabel(search_frame, text="Search:")
+        search_label.pack(side="left", padx=5)
+
+        self.consumer_search_entry = ctk.CTkEntry(search_frame, placeholder_text="Enter name or ID...")
+        self.consumer_search_entry.pack(side="left", fill="x", expand=True, padx=5)
+
+        search_button = ctk.CTkButton(search_frame, text="Search", command=self.search_arrears)
+        search_button.pack(side="left", padx=5)
+
+        reset_button = ctk.CTkButton(search_frame, text="Reset", command=self.reset_arrears_search)
+        reset_button.pack(side="left", padx=5)
+
         self.arrears_table = ttk.Treeview(
             arrears_frame,
             columns=("SerialID", "FirstName", "LastName", "Address", "BillingID", "BillingAmount", "DueDate", "isConnected"),
@@ -128,6 +182,27 @@ class WaterBillingSystem(ctk.CTk):
                 AND b.DueDate < CURDATE()
                 """
         # Fetch and display data
+        fetch_and_display_data(self.arrears_table, query)
+
+    def search_arrears(self):
+        search_term = self.consumer_search_entry.get().strip()
+
+        query = f"""
+                SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
+                AND b.DueDate < CURDATE() AND 
+                (ci.SerialID LIKE '%{search_term}%' OR ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
+                """
+        fetch_and_display_data(self.arrears_table, query)
+
+    def reset_arrears_search(self):
+        self.consumer_search_entry.delete(0, "end")
+
+        query = """
+                SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
+                AND b.DueDate < CURDATE()
+                """
         fetch_and_display_data(self.arrears_table, query)
 
     def create_charges_tab(self):

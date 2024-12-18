@@ -447,3 +447,4 @@ def add_late_fees():
             cursor.close()
         if con:
             con.close()
+
