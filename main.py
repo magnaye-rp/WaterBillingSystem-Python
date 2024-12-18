@@ -272,6 +272,9 @@ class WaterBillingSystem(ctk.CTk):
 
     def disconnect_consumer(self):
         selected_item = self.disconnection_table.focus()
+        if not selected_item:
+            messagebox.showerror("Error", "No consumer selected.")
+            return
         item_values = self.disconnection_table.item(selected_item, "values")
         serial_id = item_values[0]
         disconnect(serial_id)
