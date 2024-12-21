@@ -3,6 +3,7 @@ from tkinter import Toplevel
 import customtkinter as ctk
 from aux_method import *
 
+
 # Dialog for Charges
 class ChargesDialog(Toplevel):
     def __init__(self, master):
@@ -19,10 +20,17 @@ class ChargesDialog(Toplevel):
         self.charges_serial_id_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
         self.charges_serial_id_field.pack(padx=20, pady=5, fill="x")
 
-        self.charges_amount_label = ctk.CTkLabel(self, text="Amount:", font=("Segoe UI Emoji", 14, "bold"))
+        self.charges_name_label = ctk.CTkLabel(self, text="Name:", font=("Segoe UI Emoji", 14, "bold"))
+        self.charges_name_label.pack(anchor="w", padx=20, pady=5)
+        self.charges_name_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
+        self.charges_name_field.pack(padx=20, pady=5, fill="x")
+
+        self.charges_amount_label = ctk.CTkLabel(self, text="Amount: Peso", font=("Segoe UI Emoji", 14, "bold"))
         self.charges_amount_label.pack(anchor="w", padx=20, pady=5)
-        self.charges_amount_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
-        self.charges_amount_field.pack(padx=20, pady=5, fill="x")
+        self.charges_amount_combo_box = ctk.CTkComboBox(self, values=["20", "30",
+                                                                      "40", "50", "100"],
+                                                        font=("Segoe UI", 14))
+        self.charges_amount_combo_box.pack(anchor="w", padx=20, pady=5)
 
         self.charges_description_label = ctk.CTkLabel(self, text="Charges Description:", font=("Segoe UI Emoji", 14, "bold"))
         self.charges_description_label.pack(anchor="w", padx=20, pady=5)
@@ -33,10 +41,11 @@ class ChargesDialog(Toplevel):
 
         self.charges_submit_button = ctk.CTkButton(self, text="SUBMIT", font=("Segoe UI Symbol", 14, "bold"), command=self.submit_charges)
         self.charges_submit_button.pack(pady=20)
+        self.charges_serial_id_field.bind("<KeyRelease>", self.on_serial_id_change)
 
     def submit_charges(self):
         serial_id = self.charges_serial_id_field.get()
-        amount = self.charges_amount_field.get()
+        amount = self.charges_amount_combo_box.get()
         description = self.charges_description_combo_box.get()
 
         # Validation check before submission
@@ -58,7 +67,7 @@ class ChargesDialog(Toplevel):
 
             # Retrieving input values
             serial_id = self.charges_serial_id_field.get()
-            amount = self.charges_amount_field.get()
+            amount = self.charges_amount_combo_box.get()
             desc = self.charges_description_combo_box.get()
             billing_amount = float(amount)
             due_date = date.today()
@@ -86,7 +95,7 @@ class ChargesDialog(Toplevel):
             con.commit()
 
             self.charges_serial_id_field.delete(0, 'end')
-            self.charges_amount_field.delete(0, 'end')
+            self.charges_amount_combo_box.set("")
             self.charges_description_combo_box.set("")
             ChargesDialog.destroy(self)
             messagebox.showinfo("Success", "Charge and Bill successfully added!")
@@ -101,6 +110,16 @@ class ChargesDialog(Toplevel):
                 cursor.close()
             if con:
                 con.close()
+
+    def on_serial_id_change(self, event):
+        serial = self.charges_serial_id_field.get()
+        try:
+            name = get_name_charge(serial)
+            self.charges_name_field.delete(0, ctk.END)
+            self.charges_name_field.insert(0, str(name))
+        except mysql.connector.Error as e:
+            print(f"Error retrieving bill amount: {e}")
+
 
 class PaymentDialog(Toplevel):
     def __init__(self, master):
@@ -117,15 +136,15 @@ class PaymentDialog(Toplevel):
         self.payment_bill_id_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
         self.payment_bill_id_field.pack(padx=20, pady=5, fill="x")
 
+        self.payment_account_label = ctk.CTkLabel(self, text="Name:", font=("Segoe UI Emoji", 14, "bold"))
+        self.payment_account_label.pack(anchor="w", padx=20, pady=5)
+        self.payment_account_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
+        self.payment_account_field.pack(padx=20, pady=5, fill="x")
+
         self.payment_amount_label = ctk.CTkLabel(self, text="Amount:", font=("Segoe UI Emoji", 14, "bold"))
         self.payment_amount_label.pack(anchor="w", padx=20, pady=5)
         self.payment_amount_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
         self.payment_amount_field.pack(padx=20, pady=5, fill="x")
-
-        self.payment_account_label = ctk.CTkLabel(self, text="Account:", font=("Segoe UI Emoji", 14, "bold"))
-        self.payment_account_label.pack(anchor="w", padx=20, pady=5)
-        self.payment_account_field = ctk.CTkEntry(self, font=("Segoe UI", 14, "bold"))
-        self.payment_account_field.pack(padx=20, pady=5, fill="x")
 
         self.mop_label = ctk.CTkLabel(self, text="Mode of Payment:", font=("Segoe UI Emoji", 14, "bold"))
         self.mop_label.pack(anchor="w", padx=20, pady=5)
@@ -150,14 +169,20 @@ class PaymentDialog(Toplevel):
             PaymentDialog.destroy(self)
 
 
+
     def on_bill_id_change(self, event):
         bill_id = self.payment_bill_id_field.get()
         try:
             bill = get_bill_amount(bill_id)
+            name = get_name(bill_id)
             self.payment_amount_field.delete(0, ctk.END)
             self.payment_amount_field.insert(0, str(bill))
+            self.payment_account_field.delete(0, ctk.END)
+            self.payment_account_field.insert(0, str(name))
         except mysql.connector.Error as e:
             print(f"Error retrieving bill amount: {e}")
+
+
 
 class NewUserDialog(ctk.CTkToplevel):
     def __init__(self, parent):

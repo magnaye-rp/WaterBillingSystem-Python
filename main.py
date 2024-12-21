@@ -78,8 +78,8 @@ class WaterBillingSystem(ctk.CTk):
 
         self.consumer_table = ttk.Treeview(
             consumer_frame,
-            columns=("SerialID", "MeterID", "FirstName", "LastName", "Address", "ContactNumber", "Email", "Inspector",
-                     "Contact"),
+            columns=("MeterID", "First Name", "Last Name", "Address", "Contact Number", "Email", "Inspector",
+                     "Inspector Contact"),
             show="headings"
         )
         self.consumer_table.pack(expand=1, fill="both")
@@ -89,25 +89,28 @@ class WaterBillingSystem(ctk.CTk):
             self.consumer_table.heading(col, text=col)
             self.consumer_table.column(col, width=150, anchor="center")
 
+        openbutton = ctk.CTkButton(consumer_frame, text="Open User", command=self.new_user)
+        openbutton.pack(side="right",pady=3, padx=5)
+        newbutton = ctk.CTkButton(consumer_frame, text="New User", command=self.open_user)
+        newbutton.pack(side="right",pady=3, padx=5)
         query = """
-                SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
                 mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
                 FROM consumerinfo ci 
                 JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
-                WHERE ci.isConnected = 1
+                WHERE ci.isConnected = 'active'
                 """
         fetch_and_display_data(self.consumer_table, query)
 
     def search_consumers(self):
         search_term = self.consumer_search_entry.get().strip()
-
         query = f"""
-                SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
                 mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
                 FROM consumerinfo ci 
                 JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
                 WHERE ci.isConnected = 1 AND 
-                (ci.SerialID LIKE '%{search_term}%' OR ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
+                (ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
                 """
         fetch_and_display_data(self.consumer_table, query)
 
@@ -115,7 +118,7 @@ class WaterBillingSystem(ctk.CTk):
         self.consumer_search_entry.delete(0, "end")
 
         query = """
-                SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
                 mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber 
                 FROM consumerinfo ci 
                 JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID 
@@ -156,8 +159,8 @@ class WaterBillingSystem(ctk.CTk):
         search_label = ctk.CTkLabel(search_frame, text="Search:")
         search_label.pack(side="left", padx=5)
 
-        self.consumer_search_entry = ctk.CTkEntry(search_frame, placeholder_text="Enter name or ID...")
-        self.consumer_search_entry.pack(side="left", fill="x", expand=True, padx=5)
+        self.consumer_arrear_entry = ctk.CTkEntry(search_frame, placeholder_text="Enter name or ID...")
+        self.consumer_arrear_entry.pack(side="left", fill="x", expand=True, padx=5)
 
         search_button = ctk.CTkButton(search_frame, text="Search", command=self.search_arrears)
         search_button.pack(side="left", padx=5)
@@ -167,17 +170,20 @@ class WaterBillingSystem(ctk.CTk):
 
         self.arrears_table = ttk.Treeview(
             arrears_frame,
-            columns=("SerialID", "FirstName", "LastName", "Address", "BillingID", "BillingAmount", "DueDate", "isConnected"),
+            columns=("FirstName", "LastName", "Address", "BillingID", "BillingAmount", "DueDate", "Status"),
             show="headings"
         )
         for col in self.arrears_table["columns"]:
             self.arrears_table.heading(col, text=col)
             self.arrears_table.column(col, width=150, anchor="center")
-
         self.arrears_table.pack(expand=1, fill="both")
+        button = ctk.CTkButton(arrears_frame, text="Make Payment", command=self.payment)
+        button.pack(side="right",pady=3, padx=10)
+        latebutton = ctk.CTkButton(arrears_frame, text="Add Late Fees", command=self.add_late_fees)
+        latebutton.pack(side="right", pady=3)
         # initialize query
         query = """
-                SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                SELECT ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
                 ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
                 AND b.DueDate < CURDATE()
                 """
@@ -185,21 +191,21 @@ class WaterBillingSystem(ctk.CTk):
         fetch_and_display_data(self.arrears_table, query)
 
     def search_arrears(self):
-        search_term = self.consumer_search_entry.get().strip()
+        search_term = self.consumer_arrear_entry.get().strip()
 
         query = f"""
-                SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                SELECT ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
                 ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
                 AND b.DueDate < CURDATE() AND 
-                (ci.SerialID LIKE '%{search_term}%' OR ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
+                (ci.FirstName LIKE '%{search_term}%' OR ci.LastName LIKE '%{search_term}%')
                 """
         fetch_and_display_data(self.arrears_table, query)
 
     def reset_arrears_search(self):
-        self.consumer_search_entry.delete(0, "end")
+        self.consumer_arrear_entry.delete(0, "end")
 
         query = """
-                SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                SELECT ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
                 ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
                 AND b.DueDate < CURDATE()
                 """
@@ -212,7 +218,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.charges_table = ttk.Treeview(
             charges_frame,
-            columns=("ChargeID", "SerialID", "ChargeAmount", "DateIncurred", "Type"),
+            columns=("First Name", "Last Name", "Charge Amount", "Date Incurred", "Type"),
             show="headings"
         )
         for col in self.charges_table["columns"]:
@@ -220,12 +226,15 @@ class WaterBillingSystem(ctk.CTk):
             self.charges_table.column(col, width=150, anchor="center")
 
         self.charges_table.pack(expand=1, fill="both")
+        button = ctk.CTkButton(charges_frame, text="Add Charges", command=self.add_charges)
+        button.pack( pady=3)
         # initialize query
         query = """
-                SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge
+                SELECT ci.FirstName, ci.LastName, c.ChargeAmount, c.DateIncurred, c.Type FROM charge c Join consumerinfo ci on ci.SerialID = c.SerialID
                 """
         # Fetch and display data
         fetch_and_display_data(self.charges_table, query)
+
 
     def create_disconnection_tab(self):
         disconnection_tab = self.tab_control.add("For Disconnection")
@@ -234,7 +243,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.disconnection_table = ttk.Treeview(
             disconnection_frame,
-            columns=("SerialID", "FirstName", "LastName", "MeterID"),
+            columns=("FirstName", "LastName", "MeterID"),
             show="headings"
         )
         for col in self.disconnection_table["columns"]:
@@ -243,8 +252,8 @@ class WaterBillingSystem(ctk.CTk):
 
         self.disconnection_table.pack(expand=1, fill="both")
         # initialize query
-        query = """SELECT DISTINCT ci.SerialID, ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
-        ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 1 AND b.SerialID 
+        query = """SELECT DISTINCT ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
+        ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 'active' AND b.SerialID 
         IN ( SELECT SerialID FROM bill WHERE DueDate < CURDATE() AND isPaid = 0 GROUP BY SerialID HAVING 
         COUNT(SerialID) >= 3 ) ORDER BY ci.SerialID"""
 
@@ -261,7 +270,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.disconnected_table = ttk.Treeview(
             disconnected_frame,
-            columns=("SerialID", "MeterID", "FirstName", "LastName", "Address", "ContactNumber", "Email"),
+            columns=("MeterID", "FirstName", "LastName", "Address", "ContactNumber", "Email"),
             show="headings"
         )
         for col in self.disconnected_table["columns"]:
@@ -270,8 +279,8 @@ class WaterBillingSystem(ctk.CTk):
 
         self.disconnected_table.pack(expand=1, fill="both")
         # initialize query
-        query = """SELECT SerialID, MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
-        `consumerinfo` WHERE isConnected = 0"""
+        query = """SELECT MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
+        `consumerinfo` WHERE isConnected = 'inactive'"""
 
         # Fetch and display data
         fetch_and_display_data(self.disconnected_table, query)
@@ -280,13 +289,13 @@ class WaterBillingSystem(ctk.CTk):
         reconnect_button.pack(pady=3)
 
     def create_bills_ledger_tab(self):
-        bills_ledger_tab = self.tab_control.add("Bills and Ledger")
+        bills_ledger_tab = self.tab_control.add("Ledger and Bills")
         ledger_frame = ctk.CTkFrame(bills_ledger_tab)
         ledger_frame.pack(expand=1, fill="both", padx=10, pady=5)
 
         self.ledger_table = ttk.Treeview(
             ledger_frame,
-            columns=("LedgerID", "BillingID", "FirstName", "LastName", "AmountPaid", "PaymentDate"),
+            columns=("BillingID", "FirstName", "LastName", "AmountPaid", "PaymentDate"),
             show="headings"
         )
         for col in self.ledger_table["columns"]:
@@ -295,7 +304,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.ledger_table.pack(expand=1, fill="both")
         # initialize query
-        lquery = """SELECT l.LedgerID, l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
+        lquery = """SELECT l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
         l.PaymentDate FROM ledger l JOIN bill b ON l.BillingID = b.BillingID JOIN consumerinfo ci ON b.SerialID = ci.SerialID; """
 
         # Fetch and display data
@@ -306,7 +315,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.bills_table = ttk.Treeview(
             bills_frame,
-            columns=("BillingID", "SerialID", "DebtID", "ChargeID", "BillingAmount", "DueDate"),
+            columns=("First Name", "Last Name", "Billing Amount", "Due Date"),
             show="headings"
         )
         for col in self.bills_table["columns"]:
@@ -315,7 +324,7 @@ class WaterBillingSystem(ctk.CTk):
 
         self.bills_table.pack(expand=1, fill="both")
         # initialize query
-        bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill where isPaid = 0"""
+        bquery = """SELECT ci.FirstName, ci.LastName, b.BillingAmount, DueDate from bill b join consumerinfo ci on ci.SerialID = b.SerialID where isPaid = 0"""
 
         # Fetch and display data
         fetch_and_display_data(self.bills_table, bquery)
@@ -325,17 +334,12 @@ class WaterBillingSystem(ctk.CTk):
         button_frame.pack(pady=10, fill="x")
 
         buttons = [
-            ("Open User", self.open_user),
-            ("Payment", self.payment),
             ("New Reading", self.new_reading),
-            ("Add Charges", self.add_charges),
-            ("New User", self.new_user),
             ("Generate Bills", self.generate_bills),
-            ("Add Late Fees", self.add_late_fees),
             ("Refresh", self.refresh),
         ]
         for text, command in buttons:
-            ctk.CTkButton(button_frame, text=text, command=command).pack(side="left", padx=5)
+            ctk.CTkButton(button_frame, text=text, command=command).pack(side="left", padx=10)
 
     def open_user(self):
         selected_item = self.consumer_table.focus()
@@ -351,20 +355,81 @@ class WaterBillingSystem(ctk.CTk):
             messagebox.showerror("Error", "No consumer selected.")
             return
         item_values = self.disconnection_table.item(selected_item, "values")
-        serial_id = item_values[0]
+        id = item_values[2]
+        name = item_values[0]
+        serial_id = get_serial_name(id, name)
         disconnect(serial_id)
+        try:
+            query = """
+                    SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                    mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber FROM consumerinfo ci 
+                    JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 'active'
+                    """
+            fetch_and_display_data(self.consumer_table, query)
+        except Exception as e:
+            print(f"Error refreshing consumer data: {e}")
+        try:
+            query = """SELECT DISTINCT ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
+                    ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 'active' AND b.SerialID 
+                    IN ( SELECT SerialID FROM bill WHERE DueDate < CURDATE() AND isPaid = 0 GROUP BY SerialID HAVING 
+                    COUNT(SerialID) >= 3 ) ORDER BY ci.SerialID"""
+            fetch_and_display_data(self.disconnection_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnection data: {e}")
+
+        try:
+            query = """SELECT MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
+                    `consumerinfo` WHERE isConnected = 'inactive'"""
+            fetch_and_display_data(self.disconnected_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnected data: {e}")
 
     def reconnect_consumer(self):
         selected_item = self.disconnected_table.focus()
         item_values = self.disconnected_table.item(selected_item, "values")
-        serial_id = item_values[0]
+        id = item_values[0]
+        name = item_values[1]
+        serial_id = get_serial_name(id, name)
         if existing_arrears(serial_id):
             messagebox.showerror("Error", "Please Settle arrears first!!")
         else:
             reconnect(serial_id)
+        try:
+            query = """
+                    SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                    mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber FROM consumerinfo ci 
+                    JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 'active'
+                    """
+            fetch_and_display_data(self.consumer_table, query)
+        except Exception as e:
+            print(f"Error refreshing consumer data: {e}")
+        try:
+            query = """SELECT DISTINCT ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
+                    ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 'active' AND b.SerialID 
+                    IN ( SELECT SerialID FROM bill WHERE DueDate < CURDATE() AND isPaid = 0 GROUP BY SerialID HAVING 
+                    COUNT(SerialID) >= 3 ) ORDER BY ci.SerialID"""
+            fetch_and_display_data(self.disconnection_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnection data: {e}")
+
+        try:
+            query = """SELECT MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
+                    `consumerinfo` WHERE isConnected = 'inactive'"""
+            fetch_and_display_data(self.disconnected_table, query)
+        except Exception as e:
+            print(f"Error refreshing disconnected data: {e}")
 
     def payment(self):
         PaymentDialog(self)
+        try:
+            query = """
+                    SELECT ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                    ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
+                    AND b.DueDate < CURDATE()
+                    """
+            fetch_and_display_data(self.arrears_table, query)
+        except Exception as e:
+            print(f"Error refreshing arrears data: {e}")
 
     def new_reading(self):
         MeterReadingDialog(self)
@@ -385,9 +450,9 @@ class WaterBillingSystem(ctk.CTk):
     def refresh(self):
         try:
             query = """
-                    SELECT ci.SerialID, ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
+                    SELECT ci.MeterID, ci.FirstName, ci.LastName, ci.Address, ci.ContactNumber, ci.Email, 
                     mi.Name AS InspectorName, mi.ContactNumber AS InspectorContactNumber FROM consumerinfo ci 
-                    JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 1
+                    JOIN meterinspector mi ON mi.InspectorID = ci.InspectorID WHERE ci.isConnected = 'active'
                     """
             fetch_and_display_data(self.consumer_table, query)
         except Exception as e:
@@ -395,7 +460,7 @@ class WaterBillingSystem(ctk.CTk):
 
         try:
             query = """
-                    SELECT b.SerialID, ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
+                    SELECT ci.FirstName, ci.LastName,ci.Address, b.BillingID, b.BillingAmount, b.DueDate, 
                     ci.isConnected FROM bill b JOIN consumerinfo ci ON b.SerialID = ci.SerialID WHERE b.isPaid = 0 
                     AND b.DueDate < CURDATE()
                     """
@@ -405,15 +470,15 @@ class WaterBillingSystem(ctk.CTk):
 
         try:
             query = """
-                    SELECT ChargeID, SerialID, ChargeAmount, DateIncurred, Type FROM charge
+                    SELECT ci.FirstName, ci.LastName, c.ChargeAmount, c.DateIncurred, c.Type FROM charge c Join consumerinfo ci on ci.SerialID = c.SerialID
                     """
             fetch_and_display_data(self.charges_table, query)
         except Exception as e:
             print(f"Error refreshing charges data: {e}")
 
         try:
-            query = """SELECT DISTINCT ci.SerialID, ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
-                    ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 1 AND b.SerialID 
+            query = """SELECT DISTINCT ci.FirstName, ci.LastName, ci.MeterID FROM bill b JOIN consumerinfo ci 
+                    ON b.SerialID = ci.SerialID WHERE b.DueDate < CURDATE() AND b.isPaid = 0 AND ci.isConnected = 'active' AND b.SerialID 
                     IN ( SELECT SerialID FROM bill WHERE DueDate < CURDATE() AND isPaid = 0 GROUP BY SerialID HAVING 
                     COUNT(SerialID) >= 3 ) ORDER BY ci.SerialID"""
             fetch_and_display_data(self.disconnection_table, query)
@@ -421,20 +486,20 @@ class WaterBillingSystem(ctk.CTk):
             print(f"Error refreshing disconnection data: {e}")
 
         try:
-            query = """SELECT SerialID, MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
-                    `consumerinfo` WHERE isConnected = 0"""
+            query = """SELECT MeterID, FirstName, LastName, Address, ContactNumber, Email FROM 
+                    `consumerinfo` WHERE isConnected = 'inactive'"""
             fetch_and_display_data(self.disconnected_table, query)
         except Exception as e:
             print(f"Error refreshing disconnected data: {e}")
 
         try:
-            bquery = """SELECT BillingID, SerialID, DebtID, ChargeID, BillingAmount, DueDate from bill where isPaid = 0"""
+            bquery = """SELECT ci.FirstName, ci.LastName, b.BillingAmount, DueDate from bill b join consumerinfo ci on ci.SerialID = b.SerialID where isPaid = 0"""
             fetch_and_display_data(self.bills_table, bquery)
         except Exception as e:
             print(f"Error refreshing bills data: {e}")
 
         try:
-            lquery = """SELECT l.LedgerID, l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
+            lquery = """SELECT l.BillingID, ci.FirstName, ci.LastName, l.AmountPaid, 
                     l.PaymentDate FROM ledger l JOIN bill b ON l.BillingID = b.BillingID JOIN consumerinfo ci ON b.SerialID = ci.SerialID; """
             fetch_and_display_data(self.ledger_table, lquery)
         except Exception as e:

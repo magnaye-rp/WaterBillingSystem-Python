@@ -3,7 +3,6 @@ import mysql.connector
 from datetime import datetime, timedelta, date
 from tkinter import messagebox
 
-
 def get_serial_id(billing_id):
     serial_id = -1
 
@@ -55,6 +54,30 @@ def get_bill_amount(billing_id):
 
     return bill_amount
 
+#GET name
+def get_name(billing_id):
+    name = ''
+    try:
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = "SELECT ci.FirstName, ci.LastName from bill b join consumerinfo ci on ci.SerialID = b.SerialID where BillingID = %s"
+        cur = con.cursor()
+        cur.execute(query, (billing_id,))
+        row = cur.fetchone()
+
+        if row:
+            name = str(row[0]) + ' ' + str(row[1])
+        else:
+            print(f"No matching record found for BillingID: {billing_id}")
+
+    except mysql.connector.Error as e:
+        print(f"Database error: {e}")
+
+    return name
 
 def generate_serial_id():
     serial_id = 0
@@ -194,10 +217,28 @@ def concessionaire(name):
         return 2
     elif name == "LemeryWaterDistrict":
         return 3
-    elif name == "CalataganWaterElement":
+    elif name == "   CalataganWaterElement":
         return 4
     return 0
 
+def get_serial_name(id,name):
+    try:
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = "SELECT SerialID FROM consumerinfo WHERE firstName = %s AND meterID = %s"
+        cur = con.cursor()
+        cur.execute(query, (name,id,))
+        row = cur.fetchone()
+        serial_id = row[0]
+
+        return serial_id
+
+    except mysql.connector.Error as e:
+        print(f"Database error: {e}")
 def generate_bills():
     try:
         # Establish the database connection
@@ -313,7 +354,7 @@ def disconnect(serialID):
         )
 
         # SQL query to disconnect user
-        disconnect_query = "UPDATE consumerinfo SET isConnected = 0 WHERE SerialID = %s"
+        disconnect_query = "UPDATE consumerinfo SET isConnected = 'inactive' WHERE SerialID = %s"
         cursor = con.cursor()
         cursor.execute(disconnect_query, (serialID,))
         con.commit()
@@ -337,7 +378,7 @@ def reconnect(serialID):
             password="WBS_@dmn.root",
             database="wbs"
         )
-        reconnect_query = "UPDATE consumerinfo SET isConnected = 1 WHERE SerialID = %s"
+        reconnect_query = "UPDATE consumerinfo SET isConnected = 'active' WHERE SerialID = %s"
         cursor = con.cursor()
         cursor.execute(reconnect_query, (serialID,))
         con.commit()
@@ -448,3 +489,26 @@ def add_late_fees():
         if con:
             con.close()
 
+def get_name_charge(serial_id):
+    name = ''
+    try:
+        con = mysql.connector.connect(
+            host="localhost",
+            user="WBSAdmin",
+            password="WBS_@dmn.root",
+            database="wbs"
+        )
+        query = "SELECT FirstName, LastName from consumerinfo  where serialId = %s"
+        cur = con.cursor()
+        cur.execute(query, (serial_id,))
+        row = cur.fetchone()
+
+        if row:
+            name = str(row[0]) + ' ' + str(row[1])
+        else:
+            print(f"No matching record found for serialid: {serial_id}")
+
+    except mysql.connector.Error as e:
+        print(f"Database error: {e}")
+
+    return name
